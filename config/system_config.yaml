@@ -1,0 +1,31 @@
+# system_config.yaml - SINGLE source of truth for all tunable parameters
+# Any TBD value is explicitly commented with its corresponding Open Question in architecture.md
+
+sensor:
+  sample_rate_hz: 100.0
+  i2c_clock_hz: 400000
+  accel_range_g: 2.0
+  gyro_range_dps: 250.0
+
+signal:
+  tremor_band_hz: [4.0, 12.0]
+  voluntary_band_hz: [0.5, 4.0]
+  filter_order: null        # TBD: Open Question #1 - final Butterworth filter order
+  window_length_s: null     # TBD: Open Question #2 - final window length within 1-2s range
+  window_overlap_pct: 50.0
+  axis_strategy: "per_axis" # v1 default: per-axis analysis. Options: "per_axis", "magnitude", "strongest_axis" (Feature 15)
+
+ml:
+  confidence_threshold: null # TBD: Open Question #5 - ML detection confidence threshold
+  random_seed: 42
+
+controller:
+  severity_threshold: null   # TBD: Open Question #5 - severity threshold for mitigation decision
+  target_suppression_pct: 50.0
+  hysteresis_pct: null       # TBD: Open Question #5 - hysteresis band percentage
+  max_delta_per_step: null   # TBD: Open Question #5 - max adaptation rate per step
+  param_bounds: null         # TBD: Open Question #7 - exact stimulation parameter bounds
+
+simulation:
+  timestep_s: null           # TBD: Open Question #8 - simulation timestep
+  latency_ms: null           # TBD: Open Question #8 - simulation latency

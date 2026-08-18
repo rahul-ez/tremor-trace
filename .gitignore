@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Data and Artifacts (keep folder structure via .gitkeep)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/features/*
+!data/features/.gitkeep
+data/models/*.pkl
+data/simulation/*
+!data/simulation/.gitkeep
+data/validation/*
+!data/validation/.gitkeep
+
+# IDE / Other
+.obsidian
+Welcome.md
+.vscode/
+.idea/
