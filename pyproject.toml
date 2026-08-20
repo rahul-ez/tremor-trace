@@ -16,6 +16,7 @@ dependencies = [
     "joblib",
     "pyyaml",
     "matplotlib",
+    "pyserial",
 ]
 
 [project.optional-dependencies]

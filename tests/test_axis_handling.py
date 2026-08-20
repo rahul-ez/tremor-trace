@@ -1,7 +1,7 @@
 """Tests for axis_handling module (Feature 12)."""
 
-import pytest
 import numpy as np
+import pytest
 from numpy.typing import NDArray
 
 from signal_processing.axis_handling import (
@@ -60,12 +60,26 @@ class TestComputeMagnitude:
 class TestSelectStrongestAxis:
     """Test suite for select_strongest_axis function."""
 
-    def test_select_strongest_axis_not_implemented(self) -> None:
-        """Test that NotImplementedError is raised (Feature 15 stub)."""
-        signal = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], dtype=np.float64)
+    def test_select_strongest_axis_returns_strongest_tremor_axis(self) -> None:
+        """Test selection by tremor-band mean-square power."""
+        sample_rate_hz = 100.0
+        time_s = np.arange(1000, dtype=np.float64) / sample_rate_hz
+        signal = np.column_stack(
+            (
+                0.01 * np.sin(2.0 * np.pi * 6.0 * time_s),
+                0.20 * np.sin(2.0 * np.pi * 6.0 * time_s),
+                0.01 * np.sin(2.0 * np.pi * 1.0 * time_s),
+            )
+        )
 
-        with pytest.raises(NotImplementedError, match="Feature 15"):
-            select_strongest_axis(signal)
+        selected = select_strongest_axis(
+            signal,
+            sample_rate_hz=sample_rate_hz,
+            tremor_band_hz=(4.0, 12.0),
+            filter_order=4,
+        )
+
+        np.testing.assert_allclose(selected, signal[:, 1], atol=1e-10)
 
 
 class TestGetAxisRepresentation:
@@ -88,12 +102,21 @@ class TestGetAxisRepresentation:
         np.testing.assert_array_almost_equal(result, expected)
         assert result.shape == (2,), f"Expected 1D output, got shape {result.shape}"
 
-    def test_get_axis_representation_strongest_axis_not_implemented(self) -> None:
-        """Test strongest_axis strategy raises NotImplementedError."""
-        signal = np.array([[1.0, 2.0, 3.0]], dtype=np.float64)
+    def test_get_axis_representation_strongest_axis_strategy(self) -> None:
+        """Test dispatcher returns the strongest tremor axis."""
+        sample_rate_hz = 100.0
+        time_s = np.arange(1000, dtype=np.float64) / sample_rate_hz
+        signal = np.column_stack(
+            (
+                0.01 * np.sin(2.0 * np.pi * 6.0 * time_s),
+                0.20 * np.sin(2.0 * np.pi * 6.0 * time_s),
+                0.01 * np.sin(2.0 * np.pi * 1.0 * time_s),
+            )
+        )
 
-        with pytest.raises(NotImplementedError):
-            get_axis_representation(signal, strategy="strongest_axis")
+        selected = get_axis_representation(signal, strategy="strongest_axis")
+
+        np.testing.assert_allclose(selected, signal[:, 1], atol=1e-10)
 
     def test_get_axis_representation_invalid_strategy(self) -> None:
         """Test that invalid strategy name raises ValueError."""

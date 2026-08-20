@@ -4,7 +4,6 @@ Handles stationary-offset estimation and conversion from raw LSB values to physi
 """
 
 import logging
-from typing import Optional
 
 import numpy as np
 from numpy.typing import NDArray
@@ -13,25 +12,29 @@ from tremor_system.config import Config
 
 logger = logging.getLogger(__name__)
 
-# Per-axis LSB-to-physical-unit conversion factors
-# For ±2g accel range: ±2g = ±32768 LSB → 1g ≈ 16384 LSB
-# For ±250°/s gyro range: ±250°/s = ±32768 LSB → 1°/s ≈ 131.072 LSB
-LSB_PER_G_AT_2G_RANGE = 16384.0
-LSB_PER_DPS_AT_250DPS_RANGE = 131.072
-
-
-def estimate_offsets(raw_signal: NDArray[np.int16]) -> NDArray[np.float64]:
+def estimate_offsets(
+    raw_signal: NDArray[np.int16],
+    accel_range_g: float = 2.0,
+) -> NDArray[np.float64]:
     """Estimate per-axis offsets from a stationary recording.
 
     For a device at rest (stationary), the raw signal should be approximately constant
-    on each axis. The offset is simply the mean of the raw LSB values per axis.
+    on each axis. Accelerometer x/y and gyroscope offsets are the stationary means.
+    The accelerometer z offset excludes the expected +1g gravity component so that
+    calibration preserves gravity for the later baseline-removal stage.
+
+    Preconditions:
+        The device must be lying flat with the z-axis vertical during the calibration
+        recording. This is a hard requirement for separating the z-axis gravity
+        component from the z-axis sensor offset.
 
     Gyro offset (axes gx, gy, gz): expected ~0 °/s at rest (all axes).
-    Accel offset (axes ax, ay, az): expected 0g on horizontal (x, y), +1g on vertical (z, up).
-    Raw accel values are still in LSB at this stage.
+    Accel offset (axes ax, ay, az): expected 0g on horizontal (x, y), +1g on vertical
+    (z, up) after calibration. Raw accel values are still in LSB at this stage.
 
     Args:
         raw_signal: shape (n_samples, 6), dtype int16, axis order [ax,ay,az,gx,gy,gz] in LSB.
+        accel_range_g: Configured accelerometer full-scale range in g.
 
     Returns:
         offsets: shape (6,), dtype float64, per-axis mean offset in LSB.
@@ -39,8 +42,12 @@ def estimate_offsets(raw_signal: NDArray[np.int16]) -> NDArray[np.float64]:
     """
     if raw_signal.ndim != 2 or raw_signal.shape[1] != 6:
         raise ValueError(f"Expected shape (n_samples, 6), got {raw_signal.shape}")
+    if accel_range_g <= 0:
+        raise ValueError(f"Expected positive accel_range_g, got {accel_range_g}")
 
     offsets = np.mean(raw_signal, axis=0, dtype=np.float64)
+    sensitivity_lsb_per_g = 32768.0 / accel_range_g
+    offsets[2] -= sensitivity_lsb_per_g
     logger.debug("Estimated offsets (LSB): %s", offsets)
     return offsets
 
@@ -52,8 +59,9 @@ def validate_offsets(
 ) -> None:
     """Validate that estimated offsets match expected device orientation.
 
-    Expects:
-    - Accel z-axis offset ≈ LSB_PER_G_AT_2G_RANGE (device lying flat, z-axis up, gravity = +1g).
+        Expects:
+        - Accel z-axis sensor offset ≈ 0 after the expected +1g gravity component is removed
+            from the estimated offset (device lying flat, z-axis up).
     - Accel x/y-axis offsets ≈ 0 (horizontal axes, no gravity component).
     - Gyro x/y/z-axis offsets ≈ 0 (at rest, no rotation).
 
@@ -80,15 +88,15 @@ def validate_offsets(
     # For accel_range_g = 2.0: 1g = 16384 LSB
     lsb_per_g = 32768.0 / accel_range_g
 
-    # Expected accel z offset when device is flat (z-axis up): gravity = +1g = lsb_per_g LSB
-    expected_az_offset = lsb_per_g
+    # The estimated z offset excludes the expected +1g gravity component.
+    expected_az_offset = 0.0
     actual_az_offset = offsets[2]
     az_error = abs(actual_az_offset - expected_az_offset)
 
     if az_error > tolerance_lsb:
         raise ValueError(
             f"Accel z-axis offset validation failed. "
-            f"Expected {expected_az_offset:.0f} ± {tolerance_lsb:.0f} LSB, got {actual_az_offset:.0f} LSB. "
+            f"Expected excess offset {expected_az_offset:.0f} ± {tolerance_lsb:.0f} LSB, got {actual_az_offset:.0f} LSB. "
             f"Error: {az_error:.0f} LSB (~{az_error / lsb_per_g:.3f}g). "
             f"Device may not be lying flat (z-axis up) during calibration. "
             f"Check device orientation and re-run calibration."
@@ -139,10 +147,8 @@ def apply_calibration(
         Units: accelerometer in g, gyroscope in °/s.
         Raw accel z-axis includes the constant gravity component (≈1g when device is flat).
     """
-    if raw_signal.shape != (6,) if raw_signal.ndim == 1 else raw_signal.shape[1] != 6:
-        # Proper check for 2D array
-        if raw_signal.ndim != 2 or raw_signal.shape[1] != 6:
-            raise ValueError(f"Expected shape (n_samples, 6), got {raw_signal.shape}")
+    if raw_signal.ndim != 2 or raw_signal.shape[1] != 6:
+        raise ValueError(f"Expected raw_signal shape (n_samples, 6), got {raw_signal.shape}")
 
     if offsets.shape != (6,):
         raise ValueError(f"Expected offsets shape (6,), got {offsets.shape}")

@@ -15,6 +15,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 logger = logging.getLogger(__name__)
 
 EXPECTED_HEADER = "timestamp_us,ax,ay,az,gx,gy,gz"
+USB_SERIAL_HINTS = ("usb", "ch340", "cp210", "ftdi", "arduino", "esp32")
 
 
 def find_available_port() -> str | None:
@@ -30,9 +31,18 @@ def find_available_port() -> str | None:
             logger.info("Auto-detected single serial port: %s (%s)", detected_port, ports[0].description)
             return detected_port
 
-        logger.info("Multiple serial ports found:")
-        for p in ports:
-            logger.info("  - %s (%s)", p.device, p.description)
+        usb_ports = [
+            port for port in ports
+            if any(hint in f"{port.description} {port.hwid}".lower() for hint in USB_SERIAL_HINTS)
+        ]
+        if len(usb_ports) == 1:
+            detected_port = usb_ports[0].device
+            logger.info("Auto-detected USB serial port: %s (%s)", detected_port, usb_ports[0].description)
+            return detected_port
+
+        logger.info("Multiple serial ports found; specify one with --port:")
+        for port in ports:
+            logger.info("  - %s (%s)", port.device, port.description)
         return None
     except ImportError:
         return None
@@ -80,8 +90,12 @@ def run_logger(
     baud: int = 115200,
     duration_s: float | None = None,
     input_stream=None,
+    append: bool = True,
 ) -> int:
     """Run data logger reading from serial port or stream, saving to output_path.
+
+    Existing recordings are preserved by default. A header is written only when
+    creating a new file or when the existing file is empty.
 
     Returns:
         Number of valid samples logged.
@@ -120,8 +134,12 @@ def run_logger(
     start_time = time.time()
     last_status_time = start_time
 
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(EXPECTED_HEADER + "\n")
+    file_mode = "a" if append else "w"
+    should_write_header = not append or not output_path.exists() or output_path.stat().st_size == 0
+
+    with open(output_path, file_mode, encoding="utf-8") as f:
+        if should_write_header:
+            f.write(EXPECTED_HEADER + "\n")
         f.flush()
 
         try:
@@ -169,12 +187,23 @@ def main() -> None:
     parser.add_argument("--port", type=str, default=None, help="Serial port (e.g. COM9 or /dev/ttyUSB0)")
     parser.add_argument("--baud", type=int, default=115200, help="Baud rate")
     parser.add_argument("--duration", type=float, default=None, help="Duration to record in seconds")
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Replace the existing recording instead of appending to it",
+    )
     args = parser.parse_args()
 
     project_root = Path(__file__).resolve().parent.parent
     output_path = project_root / "data" / "raw" / args.subject_id / args.session_id / "raw_stream.csv"
 
-    run_logger(output_path, port=args.port, baud=args.baud, duration_s=args.duration)
+    run_logger(
+        output_path,
+        port=args.port,
+        baud=args.baud,
+        duration_s=args.duration,
+        append=not args.overwrite,
+    )
 
 
 if __name__ == "__main__":

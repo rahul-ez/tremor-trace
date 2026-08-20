@@ -29,9 +29,9 @@ class TestEstimateOffsets:
         """Test that offsets are computed as per-axis mean."""
         raw_signal = np.array(
             [
-                [100, 200, 300, 10, 20, 30],
-                [200, 300, 400, 20, 30, 40],
-                [300, 400, 500, 30, 40, 50],
+                [100, 200, 16384 + 300, 10, 20, 30],
+                [200, 300, 16384 + 400, 20, 30, 40],
+                [300, 400, 16384 + 500, 30, 40, 50],
             ],
             dtype=np.int16,
         )
@@ -49,9 +49,8 @@ class TestEstimateOffsets:
         timestamps_us, raw_signal = load_raw_csv(csv_path)
         offsets = estimate_offsets(raw_signal)
 
-        # For a stationary device, offsets should be reasonably stable
-        # Accel z should be around 16384 LSB (1g at ±2g range)
-        assert 10000 < offsets[2] < 23000, f"Accel z offset should be ~1g (≈16384 LSB), got {offsets[2]}"
+        # The z offset excludes +1g gravity, so the corrected signal retains +1g.
+        assert abs(offsets[2]) < 6000, f"Accel z excess offset should be near 0 LSB, got {offsets[2]}"
 
         # Gyro offsets should be small (close to 0), allow some tolerance for real sensor bias
         assert abs(offsets[3]) < 1000, f"Gyro x offset should be small, got {offsets[3]}"
@@ -69,15 +68,8 @@ class TestValidateOffsets:
 
     def test_validate_offsets_good_orientation(self, config) -> None:
         """Test validation passes for device lying flat (z-axis up)."""
-        # Device flat: z-axis ≈ 1g = ≈16384 LSB at ±2g range
-        # For accel_range_g = 2.0: lsb_per_g = 32768 / 2 = 16384
-        # So expected_az_offset ≈ 16384 LSB
-        # We'll create an offset vector with this value
-        config_accel_range = config.sensor.accel_range_g
-        lsb_per_g = 32768.0 / config_accel_range
-        expected_az = lsb_per_g
-
-        good_offsets = np.array([0.0, 0.0, expected_az, 0.0, 0.0, 0.0], dtype=np.float64)
+        # The estimated z offset excludes the expected +1g gravity component.
+        good_offsets = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float64)
 
         # Should not raise
         try:
@@ -87,8 +79,8 @@ class TestValidateOffsets:
 
     def test_validate_offsets_bad_z_axis(self, config) -> None:
         """Test validation fails when z-axis offset doesn't match expected gravity."""
-        # z-axis offset way off (e.g., 5000 LSB instead of ≈16384 LSB)
-        bad_offsets = np.array([0.0, 0.0, 5000.0, 0.0, 0.0, 0.0], dtype=np.float64)
+        # z-axis excess offset outside the default tolerance
+        bad_offsets = np.array([0.0, 0.0, 10000.0, 0.0, 0.0, 0.0], dtype=np.float64)
 
         with pytest.raises(ValueError, match="Accel z-axis offset validation failed"):
             validate_offsets(bad_offsets, config)
@@ -168,10 +160,10 @@ class TestApplyCalibration:
 
         calibrated = apply_calibration(raw_signal, offsets, config)
 
-        # After calibration (offset subtraction), accel z should be close to 0 (offset removed)
+        # Calibration preserves the +1g gravity component for Feature 13.
         accel_z_calibrated = calibrated[:, 2]
         mean_accel_z = np.mean(accel_z_calibrated)
-        assert -0.5 < mean_accel_z < 0.5, f"Expected accel z ≈ 0g (offset removed), got {mean_accel_z:.3f}g"
+        assert 0.95 < mean_accel_z < 1.05, f"Expected accel z ≈ +1g, got {mean_accel_z:.3f}g"
 
         # Accel x/y should be close to 0 (horizontal axes)
         accel_x_calibrated = calibrated[:, 0]
@@ -185,3 +177,18 @@ class TestApplyCalibration:
         gyro_calibrated = calibrated[:, 3:6]
         mean_gyro = np.mean(np.abs(gyro_calibrated))
         assert mean_gyro < 10.0, f"Expected gyro ≈ 0 deg/s, got {mean_gyro:.3f} deg/s"
+
+    @pytest.mark.parametrize(
+        "raw_signal",
+        [
+            np.zeros(6, dtype=np.int16),
+            np.zeros((2, 3, 2), dtype=np.int16),
+            np.zeros((2, 5), dtype=np.int16),
+        ],
+        ids=["one_dimensional", "three_dimensional", "wrong_column_count"],
+    )
+    def test_apply_calibration_rejects_invalid_shapes(self, config, raw_signal: NDArray[np.int16]) -> None:
+        offsets = np.zeros(6, dtype=np.float64)
+
+        with pytest.raises(ValueError, match=r"Expected raw_signal shape \(n_samples, 6\)"):
+            apply_calibration(raw_signal, offsets, config)

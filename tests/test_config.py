@@ -20,10 +20,9 @@ def test_load_config_default() -> None:
     assert config.signal.tremor_band_hz == [4.0, 12.0]
     assert config.signal.voluntary_band_hz == [0.5, 4.0]
     assert config.signal.window_overlap_pct == 50.0
-    # TBD values should be None
-    assert config.signal.filter_order is None
-    assert config.signal.window_length_s is None
-    assert config.signal.axis_strategy is None
+    assert config.signal.filter_order == 4
+    assert config.signal.window_length_s == 2.0
+    assert config.signal.axis_strategy == "per_axis"
 
     # Check ML values
     assert config.ml.random_seed == 42

@@ -10,9 +10,9 @@ sensor:
 signal:
   tremor_band_hz: [4.0, 12.0]
   voluntary_band_hz: [0.5, 4.0]
-  filter_order: null        # TBD: Open Question #1 - final Butterworth filter order
-  window_length_s: null     # TBD: Open Question #2 - final window length within 1-2s range
-  window_overlap_pct: 50.0
+  filter_order: 4           # v1: fourth-order Butterworth; alternatives: 2 or 6
+  window_length_s: 2.0      # v1: 200 samples at 100 Hz; alternatives: 1.0 or 1.5 s
+  window_overlap_pct: 50.0  # v1: 100-sample step for 200-sample windows
   axis_strategy: "per_axis" # v1 default: per-axis analysis. Options: "per_axis", "magnitude", "strongest_axis" (Feature 15)
 
 ml:

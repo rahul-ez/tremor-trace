@@ -6,10 +6,10 @@ Update this file after every completed feature.
 
 ## Current Status
 
-**Phase:** Phase 3 — Signal Processing
-**Last completed:** 12 Axis Handling Strategies
-**Next:** 13 Gravity / Baseline Removal
-**Status:** In progress (Phase 3 partial, 3/21 features complete)
+**Phase:** Phase 4 — Tremor Detection and ML
+**Last completed:** 21 Milestone 2 Verification Script — Raw vs. Filtered Visual Check
+**Next:** 22 Dataset Builder with Subject-Level Splitting
+**Status:** In progress (Phase 3 complete)
 
 ---
 
@@ -32,15 +32,15 @@ Update this file after every completed feature.
 - [x] 10 Raw Data Loader (Offline)
 - [x] 11 Sensor Calibration (Offset Estimation)
 - [x] 12 Axis Handling Strategies
-- [ ] 13 Gravity / Baseline Removal
-- [ ] 14 Band-Pass Filtering (Tremor + Voluntary Bands)
-- [ ] 15 Complete Feature 12 — Strongest-Axis Selection
-- [ ] 16 Overlapping Windowing
-- [ ] 17 Welch PSD Computation
-- [ ] 18 Tremor-Band Power, Total Power, Power Ratio, Dominant Frequency
-- [ ] 19 Time-Domain Features (RMS, Variance)
-- [ ] 20 Feature Vector Assembly
-- [ ] 21 Milestone 2 Verification Script — Raw vs. Filtered Visual Check
+- [x] 13 Gravity / Baseline Removal
+- [x] 14 Band-Pass Filtering (Tremor + Voluntary Bands)
+- [x] 15 Complete Feature 12 — Strongest-Axis Selection
+- [x] 16 Overlapping Windowing
+- [x] 17 Welch PSD Computation
+- [x] 18 Tremor-Band Power, Total Power, Power Ratio, Dominant Frequency
+- [x] 19 Time-Domain Features (RMS, Variance)
+- [x] 20 Feature Vector Assembly (including magnitude features)
+- [x] 21 Milestone 2 Verification Script — Raw vs. Filtered Visual Check
 
 **Phase 4 — Tremor Detection and ML**
 - [ ] 22 Dataset Builder with Subject-Level Splitting

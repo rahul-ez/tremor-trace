@@ -8,6 +8,9 @@ import logging
 import numpy as np
 from numpy.typing import NDArray
 
+from signal_processing.filtering import bandpass_filter
+from tremor_system.config import load_config
+
 logger = logging.getLogger(__name__)
 
 
@@ -42,26 +45,59 @@ def compute_magnitude(signal: NDArray[np.float64]) -> NDArray[np.float64]:
 
 def select_strongest_axis(
     signal: NDArray[np.float64],
+    sample_rate_hz: float | None = None,
+    tremor_band_hz: tuple[float, float] | None = None,
+    filter_order: int | None = None,
 ) -> NDArray[np.float64]:
     """Select the axis with the highest tremor-band power.
 
-    PLACEHOLDER: This function is completed in Feature 15 after filtering is available.
-
     Args:
         signal: shape (n_samples, 3), multi-axis calibrated signal.
+        sample_rate_hz: Sampling rate in Hz. Defaults to system configuration.
+        tremor_band_hz: Tremor pass band in Hz. Defaults to system configuration.
+        filter_order: Butterworth order. Defaults to system configuration.
 
     Returns:
-        NotImplementedError: Always raised in Feature 12.
+        The selected original calibrated axis, shape (n_samples,), with the
+        same units as ``signal``.
 
     Note:
-        This stub will be completed in Feature 15 (Strongest-Axis Selection).
-        It will require access to filtering and PSD computation from Features 14, 17, 18.
+        Each axis is filtered in the tremor band and ranked by mean-square
+        filtered power. The filtered signals are used only for ranking; the
+        returned data is the original calibrated axis.
     """
-    raise NotImplementedError(
-        "select_strongest_axis() is completed in Feature 15 after "
-        "filtering and PSD analysis are implemented. "
-        "For now, use strategy='per_axis' or strategy='magnitude'."
+    if signal.ndim != 2 or signal.shape[1] != 3:
+        raise ValueError(f"Expected signal shape (n_samples, 3), got {signal.shape}")
+
+    config = load_config()
+    resolved_sample_rate = (
+        config.sensor.sample_rate_hz if sample_rate_hz is None else sample_rate_hz
     )
+    resolved_band = (
+        tuple(config.signal.tremor_band_hz)
+        if tremor_band_hz is None
+        else tremor_band_hz
+    )
+    resolved_order = (
+        config.signal.filter_order if filter_order is None else filter_order
+    )
+    if resolved_order is None:
+        raise ValueError("filter_order must be configured for strongest-axis selection")
+
+    filtered = bandpass_filter(
+        signal,
+        sample_rate_hz=resolved_sample_rate,
+        band_hz=resolved_band,
+        order=resolved_order,
+    )
+    axis_power = np.mean(np.square(filtered), axis=0)
+    strongest_axis_index = int(np.argmax(axis_power))
+    logger.debug(
+        "Selected strongest tremor axis %d with powers %s",
+        strongest_axis_index,
+        axis_power,
+    )
+    return np.asarray(signal[:, strongest_axis_index], dtype=np.float64)
 
 
 def get_axis_representation(
