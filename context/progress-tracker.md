@@ -6,10 +6,10 @@ Update this file after every completed feature.
 
 ## Current Status
 
-**Phase:** Phase 4 — Tremor Detection and ML
-**Last completed:** 21 Milestone 2 Verification Script — Raw vs. Filtered Visual Check
-**Next:** 22 Dataset Builder with Subject-Level Splitting
-**Status:** In progress (Phase 3 complete)
+**Phase:** Phase 5 — Frequency, Amplitude, and Phase Estimation
+**Last completed:** 27 ML Inference Module
+**Next:** 28 Dominant Frequency Estimation Module
+**Status:** Phase 4 complete (verified against real recorded data; see memory.md -> Session Update - Features 22-27 Complete)
 
 ---
 
@@ -43,12 +43,12 @@ Update this file after every completed feature.
 - [x] 21 Milestone 2 Verification Script — Raw vs. Filtered Visual Check
 
 **Phase 4 — Tremor Detection and ML**
-- [ ] 22 Dataset Builder with Subject-Level Splitting
-- [ ] 23 Baseline Signal-Processing Threshold Detector
-- [ ] 24 Candidate ML Model Training
-- [ ] 25 Model Evaluation and Comparison
-- [ ] 26 Smallest-Model Selection for ESP32
-- [ ] 27 ML Inference Module
+- [x] 22 Dataset Builder with Subject-Level Splitting
+- [x] 23 Baseline Signal-Processing Threshold Detector
+- [x] 24 Candidate ML Model Training
+- [x] 25 Model Evaluation and Comparison
+- [x] 26 Smallest-Model Selection for ESP32
+- [x] 27 ML Inference Module
 
 **Phase 5 — Frequency, Amplitude, and Phase Estimation**
 - [ ] 28 Dominant Frequency Estimation Module

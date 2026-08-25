@@ -165,3 +165,38 @@ Last updated: 2026-08-20
 
 - Phase 3 signal processing is complete, including the visual raw-versus-filtered/PSD verification gate.
 - The next implementation target is Phase 4 Feature 22: dataset construction with subject-level train/validation/test splitting.
+
+## Session Update - Features 22-27 Complete (Phase 4)
+ 
+### What was built
+ 
+- Added `ml/dataset_builder.py`: `build_feature_table`, `load_dataset`, session-level `assign_labels`/`default_session_label`, and `get_subject_level_folds` (GroupKFold).
+- Added `ml/baseline_detector.py`: non-ML `power_ratio` threshold detector and `evaluate_baseline`.
+- Added `ml/train.py`: `train_and_scale` (LogisticRegression/SVM/RandomForest) and `save_artifacts`.
+- Added `ml/evaluate.py`: `evaluate_model` (precision/recall/F1/sensitivity/FPR), `evaluate_candidates_across_folds`, `aggregate_fold_results`.
+- Added `ml/model_selection.py`: `select_model`, smallest artifact meeting `min_recall`/`min_precision`.
+- Added `ml/inference.py`: sole `predict()` entry point returning the documented `InferenceResult` contract.
+- Added `scripts/build_features.py`: batch raw_stream.csv -> per-session and consolidated `features.csv`.
+- Added `scripts/run_training.py`: orchestrates dataset_builder -> baseline -> train -> evaluate -> model_selection -> save.
+- Added matching test files for all six `ml/` modules.
+### Decisions made
+ 
+- Session-label convention confirmed by the developer: `session_id` ending `01` = stationary "hand resting in glove" (label False, no tremor); ending `02` = deliberate tremor-like motion (label True). Implemented as `ml/dataset_builder.py::default_session_label`.
+- `sess01` (confirmed stationary) is also the correct source for per-subject sensor calibration. `scripts/build_features.py::estimate_subject_offsets` estimates one offset vector per subject from their `sess01` recording and reuses it for all of that subject's sessions, rather than estimating offsets per-session. Falls back to zero-offset calibration only when a subject has no valid stationary session (`subj03`'s `sess01` fails z-axis offset validation even though it is a rest recording, likely device-flatness during that specific recording; flagged via a WARNING log, not silently absorbed).
+- `config.signal.axis_strategy = "per_axis"` has no single-channel meaning for a scalar-per-window feature vector; `scripts/build_features.py::_select_analysis_signal` falls back to strongest-axis selection in that case, matching the precedent already set by `scripts/run_pipeline_baseline.py`. Logged at INFO level. This is a pipeline-integration decision, not a resolution of architecture.md Open Question #3 (final axis-handling strategy after comparative evaluation), which remains open.
+- SVM candidate uses `CalibratedClassifierCV(SVC(...), method="sigmoid", ensemble=False)` instead of `SVC(probability=True)`, since the latter is deprecated as of scikit-learn 1.9 and scheduled for removal in 1.11.
+- Final model artifacts are refit on the full dataset after cross-validated evaluation; the fold-level models exist only to produce honest held-out metrics and are not saved.
+### Verification
+ 
+- Full pytest suite passes: 87 passed, 8 skipped (skips require real recorded data/trained models on disk and are exercised once `scripts/build_features.py` + `scripts/run_training.py` have been run against real data).
+- Ran end-to-end against the developer's real recordings (8 subjects, 16 sessions, 1616 windows): `logistic_regression` selected (precision 1.0, recall ~0.95, 943-byte artifact); `random_forest` precision ~0.996/recall ~0.994; `svm` precision ~0.93/recall ~0.97. All three candidates clear `min_recall=0.7`/`min_precision=0.7`.
+- `tests/test_inference.py::test_predict_on_recorded_deliberate_tremor_session` (previously skipped) passes against the real trained model, confirming `label=True` on an actual tremor session.
+### Current state
+ 
+- Phase 4 (Features 22-27) is complete and verified against real recorded data on the developer's machine (Windows, scikit-learn 1.8+).
+- `data/models/` contains `model_logistic_regression_v1.pkl`, `model_svm_v1.pkl`, `model_random_forest_v1.pkl`, `scaler_v1.pkl`, `evaluation_results.csv`, `evaluation_results_by_fold.csv`.
+- The next implementation target is Phase 5, Feature 28: dominant frequency estimation module.
+### Open questions
+ 
+- `subj03` has no usable stationary calibration recording (both sessions fall back to zero-offset calibration); consider re-recording `subj03/sess01` or accepting the current fallback.
+- architecture.md Open Questions #3 (final axis-handling strategy) and #4 (final ML model selection) still list `axis_strategy` and model choice as open pending comparative evaluation / ESP32 resource confirmation; this session's choices (strongest-axis fallback, logistic_regression selection) are v1/pipeline decisions, not a closure of those architecture-level questions. Feature 32 (ESP32 resource-fit report) is still pending real on-device measurement.
