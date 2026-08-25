@@ -29,3 +29,6 @@ controller:
 simulation:
   timestep_s: null           # TBD: Open Question #8 - simulation timestep
   latency_ms: null           # TBD: Open Question #8 - simulation latency
+
+estimation:
+  phase_enabled: false       # Feature 31: advanced/experimental phase estimation, disabled by default

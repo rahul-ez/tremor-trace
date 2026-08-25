@@ -47,12 +47,18 @@ class SimulationConfig:
 
 
 @dataclass(frozen=True)
+class EstimationConfig:
+    phase_enabled: bool
+
+
+@dataclass(frozen=True)
 class Config:
     sensor: SensorConfig
     signal: SignalConfig
     ml: MlConfig
     controller: ControllerConfig
     simulation: SimulationConfig
+    estimation: EstimationConfig
 
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "system_config.yaml"
@@ -81,7 +87,7 @@ def load_config(config_path: Optional[Path] = None) -> Config:
     if not isinstance(raw_data, dict):
         raise ValueError(f"Invalid YAML structure in {path}, expected dictionary")
 
-    required_sections = {"sensor", "signal", "ml", "controller", "simulation"}
+    required_sections = {"sensor", "signal", "ml", "controller", "simulation", "estimation"}
     missing_sections = required_sections - set(raw_data.keys())
     if missing_sections:
         raise KeyError(f"Missing required configuration sections: {missing_sections}")
@@ -91,6 +97,7 @@ def load_config(config_path: Optional[Path] = None) -> Config:
     ml_raw = raw_data["ml"]
     controller_raw = raw_data["controller"]
     simulation_raw = raw_data["simulation"]
+    estimation_raw = raw_data["estimation"]
 
     sensor_cfg = SensorConfig(
         sample_rate_hz=float(sensor_raw["sample_rate_hz"]),
@@ -126,10 +133,15 @@ def load_config(config_path: Optional[Path] = None) -> Config:
         latency_ms=float(simulation_raw["latency_ms"]) if simulation_raw.get("latency_ms") is not None else None,
     )
 
+    estimation_cfg = EstimationConfig(
+        phase_enabled=bool(estimation_raw["phase_enabled"]),
+    )
+
     return Config(
         sensor=sensor_cfg,
         signal=signal_cfg,
         ml=ml_cfg,
         controller=controller_cfg,
         simulation=simulation_cfg,
+        estimation=estimation_cfg,
     )

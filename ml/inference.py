@@ -9,7 +9,14 @@ import logging
 from pathlib import Path
 
 import joblib
+import numpy as np
+from numpy.typing import NDArray
 
+from estimation.amplitude_estimation import estimate_amplitude
+from estimation.frequency_estimation import estimate_frequency
+from estimation.phase_estimation import estimate_phase
+from signal_processing.spectral_analysis import compute_welch_psd
+from tremor_system.config import Config, load_config
 from tremor_system.types import InferenceResult
 
 logger = logging.getLogger(__name__)
@@ -49,28 +56,43 @@ def _estimate_severity(features: dict) -> float:
 
 def predict(
     features: dict,
+    analysis_window: NDArray[np.float64],
+    sample_rate_hz: float,
     model_path: Path,
     scaler_path: Path,
+    nperseg: int | None = None,
+    config: Config | None = None,
 ) -> InferenceResult:
     """Run inference for one window and return the documented output contract.
 
     Args:
         features: Feature dict for one window (Feature 20 output); must
-            contain every key in FEATURE_ORDER plus "dominant_frequency_hz"
-            and "rms_amplitude" (both already included in FEATURE_ORDER).
+            contain every key in FEATURE_ORDER. These are the classifier's
+            *input* features -- distinct from the dominant_frequency_hz/
+            amplitude *output* fields below, which are computed fresh by
+            Features 28-29 rather than copied from this dict.
+        analysis_window: shape (n_samples,), the same filtered tremor-band
+            window used to produce `features` (Feature 20's analysis_window).
+            Used here to derive dominant_frequency_hz, amplitude, and
+            (if enabled) phase.
+        sample_rate_hz: Sampling rate in Hz, for the Welch PSD.
         model_path: Path to a joblib-dumped classifier (ml/train.py output).
         scaler_path: Path to the joblib-dumped StandardScaler fit at
             training time for this exact model version. Never re-fit here.
+        nperseg: Welch segment length; defaults to analysis_window's length
+            (matches the whole-window PSD used throughout this project).
+        config: Loaded system configuration; defaults to load_config().
+            Exposed as a parameter so callers doing per-window inference in
+            a loop can load it once and pass it through, rather than
+            re-reading system_config.yaml on every call.
 
     Returns:
         InferenceResult{label, severity, confidence, dominant_frequency_hz,
-        amplitude, phase}. dominant_frequency_hz/amplitude are populated
-        directly from the input feature vector as an interim measure --
-        Phase 5's estimation/frequency_estimation.py and
-        estimation/amplitude_estimation.py are expected to replace this
-        once implemented (see architecture.md -> Frequency & Phase
-        Estimation). phase is always None until Phase 5 phase estimation
-        is enabled.
+        amplitude, phase}. dominant_frequency_hz is None if the window's
+        spectrum has no clear in-band peak (see
+        estimation/frequency_estimation.py). phase is None unless
+        config.estimation.phase_enabled is True (Feature 31 is disabled by
+        default, per architecture.md -> Frequency & Phase Estimation).
 
     Raises:
         KeyError: If features is missing any required key.
@@ -81,6 +103,8 @@ def predict(
     missing = [name for name in FEATURE_ORDER if name not in features]
     if missing:
         raise KeyError(f"features is missing required keys: {missing}")
+
+    resolved_config = config or load_config()
 
     model = joblib.load(model_path)
     scaler = joblib.load(scaler_path)
@@ -98,13 +122,20 @@ def predict(
         )
     confidence = float(model.predict_proba(x_scaled)[0].max())
 
+    freqs_hz, psd = compute_welch_psd(
+        analysis_window, sample_rate_hz, nperseg or analysis_window.size
+    )
+    dominant_frequency_hz = estimate_frequency(freqs_hz, psd)
+    amplitude = estimate_amplitude(analysis_window)
+    phase = estimate_phase(analysis_window) if resolved_config.estimation.phase_enabled else None
+
     result = InferenceResult(
         label=label,
         severity=_estimate_severity(features),
         confidence=confidence,
-        dominant_frequency_hz=float(features["dominant_frequency_hz"]),
-        amplitude=float(features["rms_amplitude"]),
-        phase=None,
+        dominant_frequency_hz=dominant_frequency_hz,
+        amplitude=amplitude,
+        phase=phase,
     )
     logger.debug("Inference result: %s", result)
     return result
