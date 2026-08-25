@@ -200,3 +200,39 @@ Last updated: 2026-08-20
  
 - `subj03` has no usable stationary calibration recording (both sessions fall back to zero-offset calibration); consider re-recording `subj03/sess01` or accepting the current fallback.
 - architecture.md Open Questions #3 (final axis-handling strategy) and #4 (final ML model selection) still list `axis_strategy` and model choice as open pending comparative evaluation / ESP32 resource confirmation; this session's choices (strongest-axis fallback, logistic_regression selection) are v1/pipeline decisions, not a closure of those architecture-level questions. Feature 32 (ESP32 resource-fit report) is still pending real on-device measurement.
+
+## Session Update - Features 28-31 Complete (Phase 5)
+
+### What was built
+
+- Added `estimation/frequency_estimation.py`: `estimate_frequency(freqs_hz, psd, tremor_band_hz, min_peak_to_mean_ratio)`, wrapping `signal_processing/spectral_analysis.py::dominant_frequency()` with a peak-vs-mean-power guard that returns `None` for a flat/noise-only spectrum instead of an arbitrary bin.
+- Added `estimation/amplitude_estimation.py`: `estimate_amplitude(filtered_signal)`, thin wrapper around `compute_rms()`.
+- Added `estimation/phase_estimation.py`: `estimate_phase(filtered_signal)`, Hilbert-transform instantaneous phase at the window's final sample; returns `None` for a constant (non-oscillating) signal.
+- Added `config.estimation.phase_enabled: bool` (default `false`) to `system_config.yaml`/`tremor_system/config.py`.
+- Updated `ml/inference.py::predict()`: signature now takes `analysis_window`, `sample_rate_hz`, and an optional `config` (defaults to `load_config()`). `dominant_frequency_hz`/`amplitude` are now computed live from the window via Features 28-29 instead of copied from the input `features` dict. `phase` is computed via `estimate_phase()` only when `config.estimation.phase_enabled` is `True`; otherwise stays `None`.
+- Added matching test files for all three `estimation/` modules, and extended `tests/test_inference.py` for the new `predict()` signature plus explicit phase-gating tests (disabled by default; populated when the config flag is set).
+
+### Decisions made
+
+- `min_peak_to_mean_ratio` (default 1.5) in `estimate_frequency()` is an experimental heuristic threshold -- architecture.md's Open Questions has no assigned value for this; not yet validated against labeled tremor/no-tremor spectra beyond the synthetic sine test.
+- `estimate_phase()` returns phase at the window's *final* sample (matches the "phase right now" use case a real-time controller would need), not a windowed/averaged phase. Hilbert transform boundary effects mean this is less accurate near the very edge of a short window -- not yet quantified against a margin (Feature 31's verification explicitly calls this margin TBD).
+- `predict()` takes `config` as an optional parameter (not always calling `load_config()` internally) so a real-time inference loop can load config once and reuse it across many calls rather than re-reading the YAML every window.
+- Initial phase-estimation test had a bug (not in the estimation code): compared a sine wave's own argument against Hilbert's phase output, which uses a cosine-phase convention offset by exactly pi/2 from that. Fixed the test to use `cos()`, not `estimate_phase()`.
+- Feature 31 was initially built and tested standalone but not actually wired into `predict()` (config flag existed but nothing read it) -- caught and fixed in the same session before considering Phase 5 closed.
+
+### Verification
+
+- Full pytest suite passes: 99 passed, 8 skipped (same 8 skips as Phase 4, gated on real recorded data/trained models being present locally).
+- Ran end-to-end against the developer's real recordings: on a genuine `subj02/sess02` tremor window, `predict()` returned `label=True`, `dominant_frequency_hz=4.5` (inside the 4-12 Hz tremor band), `amplitude=0.217` (physically plausible for a hand tremor), `phase=None` (default-disabled, as expected).
+- Confirmed via `dataclasses.replace()` on a loaded `Config` that flipping `estimation.phase_enabled=True` does populate a real phase value in `[-pi, pi]`.
+
+### Current state
+
+- Phase 5 (Features 28-31) is complete, verified against real recorded data, and phase estimation is fully wired (not just built standalone).
+- `ml/inference.py::predict()`'s signature changed from Feature 27's version (`analysis_window`/`sample_rate_hz` are now required positional args); no other module in this repo calls `predict()` yet, so this had no other call sites to update.
+- The next implementation target is Phase 6, Feature 32: synthetic tremor signal generator.
+
+### Open questions
+
+- `min_peak_to_mean_ratio` and the phase-accuracy margin (Feature 31's verification) are both unvalidated heuristics -- revisit once more labeled recordings exist.
+- Everything under Open questions in the Phase 4 session update above is still open (subj03 calibration fallback, architecture.md Open Questions #3/#4 not formally closed).

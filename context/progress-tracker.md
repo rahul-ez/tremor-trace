@@ -6,10 +6,10 @@ Update this file after every completed feature.
 
 ## Current Status
 
-**Phase:** Phase 5 — Frequency, Amplitude, and Phase Estimation
-**Last completed:** 27 ML Inference Module
-**Next:** 28 Dominant Frequency Estimation Module
-**Status:** Phase 4 complete (verified against real recorded data; see memory.md -> Session Update - Features 22-27 Complete)
+**Phase:** Phase 6 — Stimulation Simulation
+**Last completed:** 31 Phase Estimation (Advanced, Experimental)
+**Next:** 32 Synthetic Tremor Signal Generator
+**Status:** Phase 5 complete (verified against real recorded data; see memory.md -> Session Update - Features 28-31 Complete)
 
 ---
 
@@ -51,10 +51,10 @@ Update this file after every completed feature.
 - [x] 27 ML Inference Module
 
 **Phase 5 — Frequency, Amplitude, and Phase Estimation**
-- [ ] 28 Dominant Frequency Estimation Module
-- [ ] 29 Amplitude Estimation Module
-- [ ] 30 Frequency/Amplitude Integration into ML Inference Output
-- [ ] 31 Phase Estimation (Advanced, Experimental)
+- [x] 28 Dominant Frequency Estimation Module
+- [x] 29 Amplitude Estimation Module
+- [x] 30 Frequency/Amplitude Integration into ML Inference Output
+- [x] 31 Phase Estimation (Advanced, Experimental)
 
 **Phase 6 — Stimulation Simulation**
 - [ ] 32 Synthetic Tremor Signal Generator
