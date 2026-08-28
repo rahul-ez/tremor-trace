@@ -6,10 +6,10 @@ Update this file after every completed feature.
 
 ## Current Status
 
-**Phase:** Phase 6 — Stimulation Simulation
-**Last completed:** 31 Phase Estimation (Advanced, Experimental)
-**Next:** 32 Synthetic Tremor Signal Generator
-**Status:** Phase 5 complete (verified against real recorded data; see memory.md -> Session Update - Features 28-31 Complete)
+**Phase:** Phase 7 — Adaptive Controller
+**Last completed:** 35 Simulation Interface — `simulation.apply()`
+**Next:** 36 Confidence Gating and Mitigation Decision Logic
+**Status:** Phase 6 fully complete (Features 32–35 verified). Full suite: 148 passed, 1 skipped.
 
 ---
 
@@ -57,10 +57,10 @@ Update this file after every completed feature.
 - [x] 31 Phase Estimation (Advanced, Experimental)
 
 **Phase 6 — Stimulation Simulation**
-- [ ] 32 Synthetic Tremor Signal Generator
-- [ ] 33 Simulated Stimulation-Response Model
-- [ ] 34 Suppression Measurement
-- [ ] 35 Simulation Interface — `simulation.apply()`
+- [x] 32 Synthetic Tremor Signal Generator
+- [x] 33 Simulated Stimulation-Response Model
+- [x] 34 Suppression Measurement
+- [x] 35 Simulation Interface — `simulation.apply()`
 
 **Phase 7 — Adaptive Controller**
 - [ ] 36 Confidence Gating and Mitigation Decision Logic

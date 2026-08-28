@@ -27,8 +27,8 @@ controller:
   param_bounds: null         # TBD: Open Question #7 - exact stimulation parameter bounds
 
 simulation:
-  timestep_s: null           # TBD: Open Question #8 - simulation timestep
-  latency_ms: null           # TBD: Open Question #8 - simulation latency
+  timestep_s: 0.001          # v1 provisional: 1 ms integration ceiling; validate experimentally
+  latency_ms: 50.0           # v1 provisional: 50 ms actuation delay; validate experimentally
 
 estimation:
   phase_enabled: false       # Feature 31: advanced/experimental phase estimation, disabled by default

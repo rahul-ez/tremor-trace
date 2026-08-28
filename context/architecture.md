@@ -414,6 +414,14 @@ StimParams = {
   "on_off_timing": tuple,      # (on_ms, off_ms)
   "phase": float | None,
 }
+
+TremorState = {
+      "y0": np.ndarray,             # shape (2,), initial position and velocity
+      "duration_s": float,
+      "timestep_s": float,          # simulation integration max_step
+      "signal": np.ndarray,         # shape (n_samples,), synthetic tremor in g
+      "sample_rate_hz": float,
+}
 ```
 
 **Simulation output (controller/validation input):**

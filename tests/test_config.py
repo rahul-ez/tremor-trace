@@ -36,8 +36,8 @@ def test_load_config_default() -> None:
     assert config.controller.param_bounds is None
 
     # Check simulation values
-    assert config.simulation.timestep_s is None
-    assert config.simulation.latency_ms is None
+    assert config.simulation.timestep_s == 0.001
+    assert config.simulation.latency_ms == 50.0
 
 
 def test_load_config_missing_file(tmp_path: Path) -> None:

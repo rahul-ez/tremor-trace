@@ -376,22 +376,31 @@ def compute_welch_psd(
 from scipy.integrate import solve_ivp
 
 
-def simulate_tremor_response(y0: NDArray[np.float64], t_span: tuple[float, float], params: dict) -> "OdeResult":
+def simulate_tremor_response(params: StimParams, tremor_state: dict) -> tuple[NDArray[np.float64], bool]:
     """Integrate the simulated tremor/stimulation-response ODE.
 
     Not a clinically validated physiological model — development/validation only.
 
     Args:
-        y0: initial state, shape (n_state_vars,).
-        t_span: (t_start_s, t_end_s).
-        params: simulation parameters from config.simulation.*.
+        params: Shared stimulation parameters; amplitude controls simulated damping.
+        tremor_state: Dict with ``y0`` shape (2,), ``duration_s``,
+            ``timestep_s``, ``signal`` shape (n_samples,), and
+            ``sample_rate_hz``.
 
     Returns:
-        scipy OdeResult with .t (time points) and .y (state trajectory).
+        Post-mitigation signal shape (n_samples,) and a stability-warning flag.
     """
     def rhs(t, y):
         ...
-    return solve_ivp(rhs, t_span, y0, max_step=params["timestep_s"])
+    time_s = np.arange(tremor_state["signal"].size) / tremor_state["sample_rate_hz"]
+    result = solve_ivp(
+        rhs,
+        (0.0, tremor_state["duration_s"]),
+        tremor_state["y0"],
+        t_eval=time_s,
+        max_step=tremor_state["timestep_s"],
+    )
+    return result.y[0], not result.success
 ```
 
 ### Project Integration
@@ -407,7 +416,8 @@ SciPy filtering and spectral functions live inside `signal_processing/filtering.
 | Filter order | TBD (experimental) | `config.signal.filter_order` |
 | Window length | 1–2 s (experimental) | `config.signal.window_length_s` |
 | Window overlap | 50% | `config.signal.window_overlap_pct` |
-| Simulation timestep | TBD | `config.simulation.timestep_s` |
+| Simulation timestep | 0.001 s (v1 provisional) | `config.simulation.timestep_s` |
+| Simulation latency | 50 ms (v1 provisional) | `config.simulation.latency_ms` |
 
 ### Data Contract
 
