@@ -125,7 +125,7 @@ def predict(
     freqs_hz, psd = compute_welch_psd(
         analysis_window, sample_rate_hz, nperseg or analysis_window.size
     )
-    dominant_frequency_hz = estimate_frequency(freqs_hz, psd)
+    dominant_frequency_hz = estimate_frequency(freqs_hz, psd, config=resolved_config)
     amplitude = estimate_amplitude(analysis_window)
     phase = estimate_phase(analysis_window) if resolved_config.estimation.phase_enabled else None
 

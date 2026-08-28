@@ -10,7 +10,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from signal_processing.spectral_analysis import dominant_frequency
-from tremor_system.config import load_config
+from tremor_system.config import Config, load_config
 
 # Minimum ratio of peak in-band PSD value to mean in-band PSD value required
 # to call a peak "real" rather than noise. Experimental heuristic --
@@ -30,6 +30,7 @@ def estimate_frequency(
     psd: NDArray[np.float64],
     tremor_band_hz: tuple[float, float] | None = None,
     min_peak_to_mean_ratio: float = DEFAULT_MIN_PEAK_TO_MEAN_RATIO,
+    config: Config | None = None,
 ) -> float | None:
     """Return the dominant in-band frequency, or None if the spectrum is flat.
 
@@ -39,12 +40,16 @@ def estimate_frequency(
         tremor_band_hz: Inclusive band in Hz; defaults to configuration.
         min_peak_to_mean_ratio: Peak/mean in-band PSD ratio required to
             treat the peak as real rather than noise.
+        config: Loaded system configuration; defaults to load_config().
+            Exposed as a parameter so callers doing per-window inference in
+            a loop can load it once and pass it through.
 
     Returns:
         Dominant frequency in Hz, or None if no clear peak exists.
     """
     _validate_spectral_arrays(freqs_hz, psd)
-    band = tuple(load_config().signal.tremor_band_hz) if tremor_band_hz is None else tremor_band_hz
+    resolved_config = config or load_config()
+    band = tuple(resolved_config.signal.tremor_band_hz) if tremor_band_hz is None else tremor_band_hz
     mask = (freqs_hz >= band[0]) & (freqs_hz <= band[1])
     if not np.any(mask):
         raise ValueError(f"No frequency bins found in band {band}")

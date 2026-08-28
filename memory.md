@@ -236,3 +236,37 @@ Last updated: 2026-08-20
 
 - `min_peak_to_mean_ratio` and the phase-accuracy margin (Feature 31's verification) are both unvalidated heuristics -- revisit once more labeled recordings exist.
 - Everything under Open questions in the Phase 4 session update above is still open (subj03 calibration fallback, architecture.md Open Questions #3/#4 not formally closed).
+
+## Session Update - Config Coupling and Import Review
+
+Last updated: 2026-08-28
+
+### What was built
+
+- Updated `estimation/frequency_estimation.py::estimate_frequency()` to accept an optional `Config` and reuse it when supplied instead of reloading YAML for every call.
+- Updated `ml/inference.py` to pass its already-resolved config into `estimate_frequency()`.
+
+### Decisions made
+
+- The repository's `signal_processing`, `estimation`, and `ml` imports are valid absolute imports because those packages intentionally live at the workspace root. They should not be changed to `tremor_system.*`, since those package paths do not exist.
+- No genuine `from .` relative imports were found. The `sys.path` setup in CLI scripts is retained because the documented direct commands (`python scripts/...`) depend on it.
+
+### Problems solved
+
+- Removed the repeated configuration-file load from the frequency-estimation path when callers provide a shared config, preserving the existing default behavior for standalone calls.
+- Corrected the earlier assessment that the root-level package imports were a critical import violation; changing them would have broken the current architecture.
+
+### Current state
+
+- Diagnostics report no errors in `estimation/frequency_estimation.py` or `ml/inference.py`.
+- Focused import-dependent tests pass: 24 passed.
+- Full pytest suite passes: 106 passed.
+- Phase 5 remains complete; Phase 6 Feature 32 (synthetic tremor signal generator) is next.
+
+### Next session starts with
+
+- Start Phase 6 Feature 32 after rereading the required context files: implement and test the synthetic tremor signal generator according to `context/build-plan.md`.
+
+### Open questions
+
+- The import convention in `context/code-standards.md` uses `tremor_system.*` as an example while the architecture uses root-level packages. Keep the current working imports unless the package layout is intentionally redesigned.

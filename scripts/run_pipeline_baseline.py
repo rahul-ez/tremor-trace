@@ -1,4 +1,10 @@
 """Run and visualize the Phase 3 signal-processing baseline pipeline."""
+# Usage : python scripts/run_pipeline_baseline.py \
+#  --input data/raw/subj01/sess01/raw_stream.csv \
+# --output data/processed/subj01/sess01/pipeline_baseline.png \
+#  --subject-id subj01 \
+#  --session-id sess01 \
+#  --window-index 0
 
 import argparse
 import logging
