@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 import yaml
 
@@ -32,12 +32,59 @@ class MlConfig:
 
 
 @dataclass(frozen=True)
+class ParamBound:
+    """Min/max bound for a single stimulation parameter."""
+
+    min: float
+    max: float
+
+
+@dataclass(frozen=True)
+class ParamBoundsConfig:
+    """Bounds for every field in StimParams.
+
+    All values are provisional (v1) — see architecture.md Open Question #7.
+    """
+
+    amplitude: ParamBound
+    pulse_frequency_hz: ParamBound
+    pulse_width_us: ParamBound
+    duty_cycle: ParamBound
+    on_time_ms: ParamBound
+    off_time_ms: ParamBound
+
+
+@dataclass(frozen=True)
+class MaxDeltaConfig:
+    """Per-parameter maximum change cap per adaptation cycle.
+
+    Each field specifies the maximum absolute change allowed for the
+    corresponding StimParams field in a single call to adapt_params().
+    Structure mirrors ParamBoundsConfig so that iteration over fields is
+    symmetric. All values are provisional (v1) — see architecture.md
+    Open Question #5.
+
+    Mapping to StimParams fields:
+        on_time_ms  → StimParams.on_off_timing[0]
+        off_time_ms → StimParams.on_off_timing[1]
+    """
+
+    amplitude: float
+    pulse_frequency_hz: float
+    pulse_width_us: float
+    duty_cycle: float
+    on_time_ms: float
+    off_time_ms: float
+
+
+@dataclass(frozen=True)
 class ControllerConfig:
     severity_threshold: Optional[float]
     target_suppression_pct: float
+    suppression_tolerance_pct: Optional[float]
     hysteresis_pct: Optional[float]
-    max_delta_per_step: Optional[float]
-    param_bounds: Optional[dict[str, Any]]
+    max_delta_per_step: Optional[MaxDeltaConfig]
+    param_bounds: Optional[ParamBoundsConfig]
 
 
 @dataclass(frozen=True)
@@ -120,12 +167,39 @@ def load_config(config_path: Optional[Path] = None) -> Config:
         random_seed=int(ml_raw["random_seed"]),
     )
 
+    raw_pb = controller_raw.get("param_bounds")
+    if raw_pb is not None:
+        parsed_param_bounds: Optional[ParamBoundsConfig] = ParamBoundsConfig(
+            amplitude=ParamBound(min=float(raw_pb["amplitude"]["min"]), max=float(raw_pb["amplitude"]["max"])),
+            pulse_frequency_hz=ParamBound(min=float(raw_pb["pulse_frequency_hz"]["min"]), max=float(raw_pb["pulse_frequency_hz"]["max"])),
+            pulse_width_us=ParamBound(min=float(raw_pb["pulse_width_us"]["min"]), max=float(raw_pb["pulse_width_us"]["max"])),
+            duty_cycle=ParamBound(min=float(raw_pb["duty_cycle"]["min"]), max=float(raw_pb["duty_cycle"]["max"])),
+            on_time_ms=ParamBound(min=float(raw_pb["on_time_ms"]["min"]), max=float(raw_pb["on_time_ms"]["max"])),
+            off_time_ms=ParamBound(min=float(raw_pb["off_time_ms"]["min"]), max=float(raw_pb["off_time_ms"]["max"])),
+        )
+    else:
+        parsed_param_bounds = None
+
+    raw_mds = controller_raw.get("max_delta_per_step")
+    if raw_mds is not None:
+        parsed_max_delta: Optional[MaxDeltaConfig] = MaxDeltaConfig(
+            amplitude=float(raw_mds["amplitude"]),
+            pulse_frequency_hz=float(raw_mds["pulse_frequency_hz"]),
+            pulse_width_us=float(raw_mds["pulse_width_us"]),
+            duty_cycle=float(raw_mds["duty_cycle"]),
+            on_time_ms=float(raw_mds["on_time_ms"]),
+            off_time_ms=float(raw_mds["off_time_ms"]),
+        )
+    else:
+        parsed_max_delta = None
+
     controller_cfg = ControllerConfig(
         severity_threshold=float(controller_raw["severity_threshold"]) if controller_raw.get("severity_threshold") is not None else None,
         target_suppression_pct=float(controller_raw["target_suppression_pct"]),
+        suppression_tolerance_pct=float(controller_raw["suppression_tolerance_pct"]) if controller_raw.get("suppression_tolerance_pct") is not None else None,
         hysteresis_pct=float(controller_raw["hysteresis_pct"]) if controller_raw.get("hysteresis_pct") is not None else None,
-        max_delta_per_step=float(controller_raw["max_delta_per_step"]) if controller_raw.get("max_delta_per_step") is not None else None,
-        param_bounds=controller_raw.get("param_bounds"),
+        max_delta_per_step=parsed_max_delta,
+        param_bounds=parsed_param_bounds,
     )
 
     simulation_cfg = SimulationConfig(

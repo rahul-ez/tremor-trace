@@ -297,7 +297,7 @@ parameter_selection.py → initial bounded StimParams {amplitude, pulse_frequenc
 adaptation.py          → compare achieved vs target_suppression:
                              if under target: increase params (bounded, capped rate)
                              if over target: decrease params (minimize exposure objective)
-                             if within hysteresis band: maintain
+                             if within suppression tolerance band: maintain
       ↓
 Output: updated StimParams for next cycle + controller_state snapshot (for logging/dashboard)
 ```
@@ -351,6 +351,7 @@ Output: updated StimParams for next cycle + controller_state snapshot (for loggi
 | ML detection threshold | `system_config.yaml: ml.confidence_threshold` | TBD (experimental) | probability | controller decision_logic |
 | Mitigation severity threshold | `system_config.yaml: controller.severity_threshold` | TBD | severity units | controller decision_logic |
 | Target suppression | `system_config.yaml: controller.target_suppression_pct` | 50 (example, tunable) | % | controller adaptation |
+| Suppression tolerance band | `system_config.yaml: controller.suppression_tolerance_pct` | TBD (experimental) | % | controller adaptation |
 | Hysteresis band | `system_config.yaml: controller.hysteresis_pct` | TBD | % | controller decision_logic |
 | Max adaptation rate | `system_config.yaml: controller.max_delta_per_step` | TBD | per-parameter units | controller adaptation |
 | Stim parameter bounds | `system_config.yaml: controller.param_bounds.*` | TBD per parameter | varies | controller parameter_selection |

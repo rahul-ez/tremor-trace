@@ -16,15 +16,40 @@ signal:
   axis_strategy: "per_axis" # v1 default: per-axis analysis. Options: "per_axis", "magnitude", "strongest_axis" (Feature 15)
 
 ml:
-  confidence_threshold: null # TBD: Open Question #5 - ML detection confidence threshold
+  confidence_threshold: 0.6  # v1 provisional — TBD Open Question #5; ML detection confidence gate for controller
   random_seed: 42
 
 controller:
-  severity_threshold: null   # TBD: Open Question #5 - severity threshold for mitigation decision
+  severity_threshold: 0.3    # v1 provisional — TBD Open Question #5; enter-threshold for mitigation
   target_suppression_pct: 50.0
-  hysteresis_pct: null       # TBD: Open Question #5 - hysteresis band percentage
-  max_delta_per_step: null   # TBD: Open Question #5 - max adaptation rate per step
-  param_bounds: null         # TBD: Open Question #7 - exact stimulation parameter bounds
+  suppression_tolerance_pct: 5.0   # v1 provisional — TBD; ±band around target within which adaptation.py maintains (separate from hysteresis_pct, which gates mitigate on/off)
+  hysteresis_pct: 10.0       # v1 provisional — TBD Open Question #5; exit = severity_threshold - hysteresis_pct/100
+  max_delta_per_step:              # v1 provisional — TBD Open Question #5; per-field cap per adaptation cycle (per-parameter units, matches param_bounds structure)
+    amplitude:          0.5        # 10% of [0, 5] range
+    pulse_frequency_hz: 5.0        # ~6% of [20, 100] range
+    pulse_width_us:     25.0       # ~6% of [50, 500] range
+    duty_cycle:         0.05       # 10% of [0, 0.5] range
+    on_time_ms:         25.0       # ~6% of [50, 500] range
+    off_time_ms:        25.0       # ~6% of [50, 500] range
+  param_bounds:              # v1 provisional — TBD Open Question #7; all ranges to be validated experimentally
+    amplitude:
+      min: 0.0
+      max: 5.0
+    pulse_frequency_hz:
+      min: 20.0
+      max: 100.0
+    pulse_width_us:
+      min: 50.0
+      max: 500.0
+    duty_cycle:
+      min: 0.0
+      max: 0.5
+    on_time_ms:
+      min: 50.0
+      max: 500.0
+    off_time_ms:
+      min: 50.0
+      max: 500.0
 
 simulation:
   timestep_s: 0.001          # v1 provisional: 1 ms integration ceiling; validate experimentally

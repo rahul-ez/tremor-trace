@@ -26,14 +26,23 @@ def test_load_config_default() -> None:
 
     # Check ML values
     assert config.ml.random_seed == 42
-    assert config.ml.confidence_threshold is None
+    # confidence_threshold was TBD (None); set to 0.6 provisional in Feature 36.
+    assert config.ml.confidence_threshold == 0.6
 
     # Check controller values
     assert config.controller.target_suppression_pct == 50.0
-    assert config.controller.severity_threshold is None
-    assert config.controller.hysteresis_pct is None
-    assert config.controller.max_delta_per_step is None
-    assert config.controller.param_bounds is None
+    # Previously TBD (None); set to provisional values in Feature 36.
+    assert config.controller.severity_threshold == 0.3
+    assert config.controller.hysteresis_pct == 10.0
+    # suppression_tolerance_pct added in Feature 38 pre-work — separate from hysteresis_pct.
+    assert config.controller.suppression_tolerance_pct == 5.0
+    # max_delta_per_step converted from scalar to per-field MaxDeltaConfig in Feature 38 pre-work.
+    from tremor_system.config import MaxDeltaConfig, ParamBoundsConfig
+    assert isinstance(config.controller.max_delta_per_step, MaxDeltaConfig)
+    assert config.controller.max_delta_per_step.amplitude == 0.5
+    assert config.controller.max_delta_per_step.duty_cycle == 0.05
+    # param_bounds is now a typed ParamBoundsConfig (not None) since Feature 36.
+    assert isinstance(config.controller.param_bounds, ParamBoundsConfig)
 
     # Check simulation values
     assert config.simulation.timestep_s == 0.001

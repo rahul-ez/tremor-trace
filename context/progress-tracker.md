@@ -6,10 +6,10 @@ Update this file after every completed feature.
 
 ## Current Status
 
-**Phase:** Phase 7 — Adaptive Controller
-**Last completed:** 35 Simulation Interface — `simulation.apply()`
-**Next:** 36 Confidence Gating and Mitigation Decision Logic
-**Status:** Phase 6 fully complete (Features 32–35 verified). Full suite: 148 passed, 1 skipped.
+**Phase:** Phase 8 — Closed-Loop Integration
+**Last completed:** 40 Full Controller Loop (Detect → Decide → Mitigate, Single Cycle) — Phase 7 complete
+**Next:** 41 Closed-Loop Runner (Single-Cycle, Simulated Tremor Input)
+**Status:** Phase 7 complete (Features 36–40). Full suite: 230 passed, 1 skipped.
 
 ---
 
@@ -63,11 +63,11 @@ Update this file after every completed feature.
 - [x] 35 Simulation Interface — `simulation.apply()`
 
 **Phase 7 — Adaptive Controller**
-- [ ] 36 Confidence Gating and Mitigation Decision Logic
-- [ ] 37 Bounded Stimulation Parameter Selection
-- [ ] 38 Adaptation Logic (Increase/Decrease/Maintain)
-- [ ] 39 Controller State Management
-- [ ] 40 Full Controller Loop (Detect → Decide → Mitigate, Single Cycle)
+- [x] 36 Confidence Gating and Mitigation Decision Logic
+- [x] 37 Bounded Stimulation Parameter Selection
+- [x] 38 Adaptation Logic (Increase/Decrease/Maintain)
+- [x] 39 Controller State Management
+- [x] 40 Full Controller Loop (Detect → Decide → Mitigate, Single Cycle)
 
 **Phase 8 — Closed-Loop Integration**
 - [ ] 41 Closed-Loop Runner (Single-Cycle, Simulated Tremor Input)
