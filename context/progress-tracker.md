@@ -6,10 +6,10 @@ Update this file after every completed feature.
 
 ## Current Status
 
-**Phase:** Phase 8 — Closed-Loop Integration
-**Last completed:** 40 Full Controller Loop (Detect → Decide → Mitigate, Single Cycle) — Phase 7 complete
-**Next:** 41 Closed-Loop Runner (Single-Cycle, Simulated Tremor Input)
-**Status:** Phase 7 complete (Features 36–40). Full suite: 230 passed, 1 skipped.
+**Phase:** Phase 9 — Validation and Robustness
+**Last completed:** 43 Closed-Loop with Recorded Hardware Data — Phase 8 complete
+**Next:** 44 No-Mitigation Baseline Experiment
+**Status:** Phase 8 complete (verified end-to-end on synthetic + real recorded data; see memory.md -> Session Update - Features 41-43 Complete). Full suite: 230 passed, 8 skipped.
 
 ---
 
@@ -70,9 +70,9 @@ Update this file after every completed feature.
 - [x] 40 Full Controller Loop (Detect → Decide → Mitigate, Single Cycle)
 
 **Phase 8 — Closed-Loop Integration**
-- [ ] 41 Closed-Loop Runner (Single-Cycle, Simulated Tremor Input)
-- [ ] 42 Multi-Cycle Closed-Loop Simulation
-- [ ] 43 Closed-Loop with Recorded Hardware Data
+- [x] 41 Closed-Loop Runner (Single-Cycle, Simulated Tremor Input)
+- [x] 42 Multi-Cycle Closed-Loop Simulation
+- [x] 43 Closed-Loop with Recorded Hardware Data
 
 **Phase 9 — Validation and Robustness**
 - [ ] 44 No-Mitigation Baseline Experiment

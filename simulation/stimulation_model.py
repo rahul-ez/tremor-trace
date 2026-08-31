@@ -14,6 +14,27 @@ from scipy.integrate import solve_ivp
 from tremor_system.config import Config, load_config
 from tremor_system.types import StimParams
 
+# Converts StimParams.amplitude (units abstract, bounded by
+# config.controller.param_bounds.amplitude, v1 range [0, 5]) into the ODE's
+# damping coefficient, in rad/s. Fix for a discovered scale mismatch: with
+# no gain (damping = amplitude directly), the maximum achievable damping
+# (5 rad/s) was two orders of magnitude below tremor angular frequencies
+# (2*pi*4Hz..2*pi*12Hz = 25..75 rad/s), capping achievable suppression at
+# under 4% regardless of amplitude -- see memory.md Phase 8 session update.
+#
+# Calibrated so that amplitude = half of the v1 max bound (2.5) yields
+# damping = 2*pi*6Hz (37.7 rad/s), i.e. ~50% tremor-band power suppression
+# at the band's midpoint frequency at half of the available amplitude
+# range -- leaving headroom for adapt_params to increase toward stronger
+# suppression or decrease toward the target from above. At the v1 max
+# amplitude (5.0), suppression reaches ~50% even at the tremor band's
+# hardest-to-damp edge (12 Hz) and up to ~90% at the easiest (4 Hz).
+# Not a clinically validated relationship -- a calibration choice for
+# controller development, not a hardware fact. Revisit if
+# config.controller.param_bounds.amplitude.max or target_suppression_pct
+# change.
+DAMPING_GAIN_RAD_S_PER_UNIT_AMPLITUDE = 15.0
+
 REQUIRED_TREMOR_STATE_KEYS = {
     "y0",
     "duration_s",
@@ -104,7 +125,11 @@ def simulate_tremor_response(
     def rhs(current_time_s: float, state: NDArray[np.float64]) -> NDArray[np.float64]:
         forcing_velocity_at_time = float(np.interp(current_time_s, time_s, forcing_velocity))
         forcing_acceleration_at_time = float(np.interp(current_time_s, time_s, forcing_acceleration))
-        damping = params.amplitude if current_time_s >= latency_s else 0.0
+        damping = (
+            DAMPING_GAIN_RAD_S_PER_UNIT_AMPLITUDE * params.amplitude
+            if current_time_s >= latency_s
+            else 0.0
+        )
         return np.asarray(
             [forcing_velocity_at_time - damping * state[0],
              forcing_acceleration_at_time - damping * state[1]],

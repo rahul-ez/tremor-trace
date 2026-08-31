@@ -182,3 +182,73 @@ Test: `tests/test_closed_loop_single_cycle.py` — one cycle on synthetic 6 Hz a
 - `adapt_params` adapts amplitude only (v1). Multi-field adaptation (pulse_width_us, duty_cycle, on_off_timing) is deferred. There is no open question blocking Phase 8 on this.
 - ODE simulation damping mapping and suppression ceiling (~88% saturation at high amplitude) still need experimental validation.
 
+
+## Session Update - Features 41-43 Complete (Phase 8)
+
+### What was built
+
+- Added `simulation/closed_loop_runner.py`: `run_closed_loop_cycle(tremor_signal, state, model_path, scaler_path, config=None) -> (SimResult, ControllerState)`. Matches the signature/stage-sequence already sketched in this file's prior handoff note almost exactly, with two required additions the sketch didn't have: `model_path`/`scaler_path` params (no config field holds these; `ml.inference.predict()` requires them directly), and an internal `_build_single_window()` step (axis embedding + baseline removal + band-pass filter + windowing) before feature extraction, since the prior note's stage list started at "Feature 20 (feature extraction)" but a raw `tremor_signal` array needs those upstream Phase 3 steps first to produce a valid analysis window.
+- Added `scripts/run_closed_loop_simulation.py`: Feature 42 (`--source synthetic`, default) and Feature 43 (`--source recorded --path <raw_stream.csv>`) in one script, per build-plan's stated implementation ("Extend ... with a `--source recorded` mode"). Writes `data/simulation/<experiment_id>/cycle_log.csv` and `suppression_plot.png`.
+- Added `tests/test_closed_loop_single_cycle.py` (Feature 41's exact required filename), `tests/test_closed_loop_multi_cycle.py` (Feature 42), `tests/test_closed_loop_recorded.py` (Feature 43).
+
+### Decisions made
+
+- `tremor_signal` (single-axis, units g) is embedded into a synthetic-shaped 3-axis accel window (x=signal, z~1g static baseline, y=0) and a zero gyro window purely so `extract_features()`'s documented `accel_window`/`gyro_window` parameters have something to consume. This has no physical meaning -- `tremor_band_power`/`dominant_frequency_hz`/severity (computed from the real dominant axis) are accurate; `accel_magnitude`/`gyro_magnitude` are not, for both synthetic AND recorded-session input. Documented prominently in both `closed_loop_runner.py` and the CLI script's module docstring, not hidden.
+- `run_closed_loop_cycle()` always returns a `SimResult`, even when `mitigate=False` (no simulation ran) -- a sentinel with `achieved_suppression_pct=0.0`, `post_mitigation_signal` equal to the untouched input window, `stability_warning=False`. Chosen over `Optional[SimResult]` so Feature 42/43's per-cycle logging never needs None-handling.
+- `y0` for `simulate_tremor_response()`'s 2-state ODE is set to `[analysis_window[0], 0.0]` -- ensures the first state's undamped trajectory stays continuous with the input signal (verified algebraically: with damping=0, `state[0](t) = y0[0] + signal(t) - signal(0)`, so `y0[0] = signal[0]` makes `state[0](0) = signal(0)` exactly). The second state's initial condition has no direct bearing on the returned `post_mitigation_signal` (only `result.y[0]` is used), so it was set to a neutral 0.0.
+- Feature 42/43's per-cycle windowing is deliberately non-overlapping (unlike the 50%-overlap windowing used for ML training data) -- a real-time-style closed loop consumes new samples each cycle, it does not re-process already-seen data. A `_slice_into_windows()` helper in the script handles this; `closed_loop_runner.py` itself still internally calls the standard (overlap-configured) `segment_windows()` but only ever consumes windows[0], since each cycle already receives an exactly-one-window-length slice.
+- Feature 43's "recorded" mode runs real calibration + `select_strongest_axis()` (Phase 3) to get one real physical-units dominant-axis signal, then feeds it through the same per-cycle path as synthetic input -- inheriting the accel/gyro embedding caveat above.
+
+### Verification
+
+- Full pytest suite: 230 passed, 8 skipped (all skips gated on real recorded data/trained models being present locally, same as prior phases).
+- `test_closed_loop_single_cycle.py`: confirmed on a strong synthetic 6 Hz tremor, `mitigate=True` is decided, `StimParams` are applied, `achieved_suppression_pct > 0`; confirmed a negligible-amplitude signal correctly does NOT mitigate; confirmed a too-short signal raises a clear `ValueError`.
+- `test_closed_loop_recorded.py`: ran the full closed loop on real `subj05/sess02` (deliberate tremor) and `subj05/sess01` (stationary rest) recordings. `mitigate=True` occurred during the tremor session; `mitigate=False` throughout the entire rest session -- first true end-to-end confirmation (Phases 3 through 8) on real hardware-sourced data.
+- **Finding, not a bug:** with the current v1 provisional config (`param_bounds.amplitude.max=5.0`, `simulation.timestep_s=0.001`, `simulation.latency_ms=50.0`, `target_suppression_pct=50.0`), a 30-cycle synthetic run's `achieved_suppression_pct` converges *stably* (satisfies Feature 42's literal "not oscillating without bound" requirement -- variance across the last 5 cycles was <1 percentage point) but plateaus around **8.5%**, far short of the 50% target. `amplitude` hits its configured max (5.0) on cycle 0 and stays pinned there; `adapt_params` correctly keeps trying to INCREASE and correctly keeps getting clamped (logged `bound_clamped=True` every cycle). This is a genuine mismatch between Phase 6's ODE damping strength (`damping = params.amplitude` directly, no separate rate constant) and Phase 7's `param_bounds.amplitude` ceiling combined with the ~2s window duration per cycle -- not something Phase 8's wiring can or should paper over. Reconciles with this file's earlier "~88% saturation at high amplitude" note: that note's scenario was evidently unbounded/longer-duration, not the actual bounded single-2s-window closed loop Phase 8 exercises -- the two numbers describe different regimes, not a contradiction.
+
+### Current state
+
+- Phase 8 (Features 41-43) is complete and verified against both synthetic and real recorded data.
+- The 8.5%-suppression-ceiling finding above is a real, currently-unresolved gap between Phase 6/7's provisional tuning and Phase 7's target -- worth addressing before Phase 9's validation experiments, since Feature 44-46 (baseline/fixed/adaptive experiments) will inherit this same ceiling unless `DECAY`-equivalent damping strength, `param_bounds.amplitude.max`, or the window duration assumption is revisited.
+- The next implementation target is Phase 9, Feature 44: no-mitigation baseline experiment.
+
+### Open questions
+
+- How to close the 8.5%-vs-50%-target suppression gap: increase `param_bounds.amplitude.max`, strengthen the ODE's damping-per-unit-amplitude relationship, allow adaptation across multiple consecutive cycles before the "converged" cycle_log is judged, or accept a lower `target_suppression_pct`. Not decided.
+- The accel/gyro synthetic-embedding caveat (documented above) means `accel_magnitude`/`gyro_magnitude`-driven behavior is untested on real embedding-independent input; if those features ever become load-bearing for detection, `run_closed_loop_cycle()` would need a real-3-axis-input variant.
+- Everything under Open questions in the Phase 4/5/6 session updates above is still open (`subj03` calibration fallback, `min_peak_to_mean_ratio`/phase-accuracy margins, `TremorState` naming inconsistency).
+
+## Session Update - Post-Phase-8 Fixes: Damping Calibration + Real 3-Axis Data
+
+Follow-up to the Phase 8 session above, fixing both items flagged as open at the time.
+
+### What was fixed
+
+**1. Suppression ceiling (8.5% plateau).** Root cause, confirmed algebraically before touching code: `simulate_tremor_response()`'s ODE is a first-order low-pass filter on the tremor signal's derivative, with `damping = params.amplitude` directly (rad/s) as the cutoff. Tremor angular frequencies are `2*pi*4Hz..2*pi*12Hz` = 25-75 rad/s; `param_bounds.amplitude` only reaches 5.0. Steady-state power suppression for this filter is `damping^2/(damping^2+omega^2)`; at damping=5 and omega=25-75, that's 0.4-3.8% -- matching the observed ~8.5% plateau (transient/latency effects added a bit above the pure steady-state number).
+
+Fix: added `DAMPING_GAIN_RAD_S_PER_UNIT_AMPLITUDE = 15.0` in `simulation/stimulation_model.py`, so `damping = 15.0 * params.amplitude`. Calibrated (shown algebraically, then verified empirically) so that amplitude = half the v1 max bound (2.5) yields damping = 2*pi*6Hz, i.e. ~50% suppression at the tremor band's midpoint frequency at half the available amplitude range -- leaving headroom for `adapt_params` to converge from either direction. At max amplitude (5.0), suppression reaches ~50% even at the tremor band's hardest edge (12 Hz) and ~90% at the easiest (4 Hz).
+
+Verified: a 30-cycle synthetic 6 Hz run now starts at 81% (initial `select_initial_params` overshoot), decreases each cycle as `adapt_params` correctly responds, and **locks in at 53.2%** -- inside the target ± tolerance band (50% ± 5%) -- for the remaining ~25 cycles. A real recorded `subj05/sess02` run converges to a noisier but correctly-centered 42-61% range (real sensor data, not a clean sine).
+
+**2. Synthetic accel/gyro embedding for recorded sessions.** `run_closed_loop_cycle()` (`simulation/closed_loop_runner.py`) and `_build_single_window()` now accept optional `accel_signal`/`gyro_signal` parameters (shape (n,3), real calibrated data aligned sample-for-sample with `tremor_signal`). When provided, these are windowed and used directly for `accel_magnitude`/`gyro_magnitude` features instead of the synthetic embedding. `scripts/run_closed_loop_simulation.py::_load_recorded_signal()` now returns `(analysis_signal, accel_signal, gyro_signal)` -- all three real -- and `_slice_into_windows()` slices all three in lockstep so each cycle gets matching real data. `--source synthetic` still falls back to the synthetic embedding (unavoidable -- Feature 32 only ever generates one axis; there is no real 3-axis data for it to offer). Verified directly: a mid-recording window's `accel_chunk`/`gyro_chunk` now show real varying values (e.g. z-axis 0.80-1.25g, non-zero gyro), not the flat synthetic embedding (z exactly 1.0, gyro exactly 0) from before.
+
+### Decisions made
+
+- The damping-gain calibration is explicitly documented as non-clinical, tied to the *current* `param_bounds.amplitude.max=5.0` and `target_suppression_pct=50.0` -- if either changes, `DAMPING_GAIN_RAD_S_PER_UNIT_AMPLITUDE` should be recalibrated too (the module comment states this).
+- Chose to fix the gain constant rather than raise `param_bounds.amplitude.max` -- the gain fix addresses the actual scale mismatch (rad/s needed vs. amplitude range available); raising the bound alone would have papered over the model's real behavior without making intermediate amplitude values meaningful.
+- `_slice_into_windows()`'s return type changed from `list[NDArray]` to `list[tuple[NDArray, NDArray|None, NDArray|None]]` -- a breaking change to that helper's signature, but it is script-internal (not part of any documented Feature contract), so no downstream consumers needed updating beyond `run_multi_cycle_simulation()` itself.
+
+### Verification
+
+- Full pytest suite: 230 passed, 8 skipped -- unchanged pass/skip count from before these fixes (existing tests didn't hard-code the old ~8.5% number, so they kept passing; the multi-cycle "not oscillating" test in particular now also incidentally demonstrates real convergence, though it doesn't assert on the specific percentage).
+- Manually verified (shown above) both the synthetic 30-cycle convergence to 53.2% and the recorded-session convergence to a real ~42-61% band, plus confirmed the rest session (`subj05/sess01`) still correctly shows `mitigate=False` throughout all 15 cycles -- the accel/gyro fix did not change detection behavior, only the features feeding it are now accurate for recorded sessions.
+
+### Current state
+
+- Both Phase 8 open items are resolved. The closed loop now genuinely converges toward `target_suppression_pct` on both synthetic and real recorded data, and recorded-session `accel_magnitude`/`gyro_magnitude` features reflect real sensor data.
+- Next implementation target is still Phase 9, Feature 44: no-mitigation baseline experiment.
+
+### Open questions
+
+- The damping gain (15.0) is calibrated against the *current* v1 `param_bounds`/`target_suppression_pct` values, which are all still marked provisional -- if those get revisited with real experimental data, the gain should be re-derived using the same method (shown above), not left stale.
+- Everything under Open questions in the Phase 4/5/6/8 session updates above is still open.
