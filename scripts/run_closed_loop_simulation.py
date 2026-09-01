@@ -15,7 +15,7 @@ windows of that real single-axis signal.
 
 --source recorded now passes the session's real calibrated 3-axis
 accel/gyro data through to run_closed_loop_cycle() (see
-_load_recorded_signal()), so accel_magnitude/gyro_magnitude features
+load_recorded_signal()), so accel_magnitude/gyro_magnitude features
 reflect real sensor data, not a synthetic embedding. --source synthetic
 still uses the synthetic-embedding fallback in
 simulation/closed_loop_runner.py, since Feature 32 only generates a single
@@ -66,7 +66,7 @@ CYCLE_LOG_COLUMNS = [
 ]
 
 
-def _slice_into_windows(
+def slice_into_windows(
     analysis_signal: NDArray[np.float64],
     window_length_s: float,
     sample_rate_hz: float,
@@ -106,7 +106,7 @@ def _slice_into_windows(
     return chunks
 
 
-def _load_synthetic_signal(
+def load_synthetic_signal(
     args: argparse.Namespace, config: Config
 ) -> tuple[NDArray[np.float64], None, None]:
     total_duration_s = args.n_cycles * config.signal.window_length_s
@@ -121,7 +121,7 @@ def _load_synthetic_signal(
     return signal, None, None
 
 
-def _load_recorded_signal(
+def load_recorded_signal(
     args: argparse.Namespace, config: Config
 ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
     """Run calibration + strongest-axis selection on a real recorded session.
@@ -170,11 +170,11 @@ def run_multi_cycle_simulation(
         Path to the written cycle_log.csv.
     """
     analysis_signal, accel_signal, gyro_signal = (
-        _load_recorded_signal(args, config)
+        load_recorded_signal(args, config)
         if args.source == "recorded"
-        else _load_synthetic_signal(args, config)
+        else load_synthetic_signal(args, config)
     )
-    chunks = _slice_into_windows(
+    chunks = slice_into_windows(
         analysis_signal,
         config.signal.window_length_s,
         config.sensor.sample_rate_hz,

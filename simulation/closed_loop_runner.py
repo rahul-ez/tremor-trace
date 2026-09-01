@@ -17,7 +17,7 @@ windows (see run_closed_loop_cycle()'s optional parameters) so
 accel_magnitude/gyro_magnitude features reflect real sensor data. When
 omitted -- the synthetic-input case, which has no 3-axis motion to offer --
 tremor_signal is embedded into a synthetic 3-axis shape as a fallback; see
-_build_single_window()'s docstring.
+build_single_window()'s docstring.
 """
 
 import logging
@@ -46,7 +46,7 @@ SIMULATION_SUBJECT_ID = "simulation"
 SIMULATION_SESSION_ID = "closed_loop"
 
 
-def _build_single_window(
+def build_single_window(
     tremor_signal: NDArray[np.float64],
     config: Config,
     accel_signal: NDArray[np.float64] | None = None,
@@ -135,7 +135,7 @@ def _build_single_window(
     return analysis_windows[0], accel_windows[0], gyro_windows[0], sample_rate_hz
 
 
-def _no_mitigation_result(window: NDArray[np.float64], latency_ms: float) -> SimResult:
+def no_mitigation_result(window: NDArray[np.float64], latency_ms: float) -> SimResult:
     """SimResult sentinel for a mitigate=False cycle -- no simulation ran.
 
     Args:
@@ -180,7 +180,7 @@ def run_closed_loop_cycle(
         accel_signal: shape (n_samples, 3), units g -- real calibrated
             accelerometer data aligned with tremor_signal, for accurate
             accel_magnitude features. Omit for synthetic input (there is no
-            real 3-axis data to offer); see _build_single_window().
+            real 3-axis data to offer); see build_single_window().
         gyro_signal: shape (n_samples, 3), units deg/s -- real calibrated
             gyroscope data aligned with tremor_signal, for accurate
             gyro_magnitude features. Omit for synthetic input.
@@ -188,7 +188,7 @@ def run_closed_loop_cycle(
     Returns:
         (sim_result, updated_state). sim_result reflects a real
         simulation.apply() call when the controller decided to mitigate;
-        otherwise a "no mitigation" sentinel (see _no_mitigation_result)
+        otherwise a "no mitigation" sentinel (see no_mitigation_result)
         with achieved_suppression_pct=0.0. updated_state reflects
         decide_mitigation()'s hysteresis update and, when mitigation
         occurred, adapt_params()'s parameter adjustment.
@@ -203,7 +203,7 @@ def run_closed_loop_cycle(
     """
     resolved_config = config or load_config()
 
-    analysis_window, accel_window, gyro_window, sample_rate_hz = _build_single_window(
+    analysis_window, accel_window, gyro_window, sample_rate_hz = build_single_window(
         tremor_signal, resolved_config, accel_signal=accel_signal, gyro_signal=gyro_signal
     )
     nperseg = analysis_window.size
@@ -235,7 +235,7 @@ def run_closed_loop_cycle(
 
     if params is None:
         logger.debug("run_closed_loop_cycle: mitigate=False -- no simulation this cycle")
-        return _no_mitigation_result(analysis_window, latency_ms), state_after_decision
+        return no_mitigation_result(analysis_window, latency_ms), state_after_decision
 
     y0 = np.array([analysis_window[0], 0.0], dtype=np.float64)
     tremor_state = {
