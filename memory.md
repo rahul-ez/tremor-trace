@@ -299,3 +299,38 @@ Verified: a 30-cycle synthetic 6 Hz run now starts at 81% (initial `select_initi
 - architecture.md Success Criteria #3 (voluntary-movement false-positive threshold) and #4 (frequency/amplitude acceptable error threshold) are both still TBD -- Features 48/49 report the numbers for review, as instructed, but nothing is asserted against a target that doesn't exist yet.
 - Feature 48's synthetic-voluntary-movement substitution (no real labeled recording exists) should be revisited if/when a real voluntary-movement recording protocol is ever run.
 - Everything under Open questions in the Phase 4/5/6/8 session updates above is still open.
+
+## Session Update - Features 52-55 Complete (Phase 10)
+
+### What was built
+
+- `visualization/signal_plots.py`: `plot_raw_vs_filtered()` and `plot_psd()` (Feature 52), `plot_detection_dashboard()` (Feature 53, extended into this file per the build plan's "module TBD — extend signal_plots.py or a new file" allowance).
+- `visualization/controller_dashboard.py`: `plot_controller_dashboard()` (Feature 54) -- 3-panel plot (mitigation decision, achieved vs. target suppression, amplitude/pulse_frequency_hz over cycles) reading any cycle_log.csv (Feature 42/43's or Features 44-46's schema, the latter being a superset).
+- `visualization/validation_report.py`: `plot_validation_comparison()` (Feature 55) -- side-by-side suppression/exposure bar charts across the three strategies.
+- **Gap fix, needed before Feature 55 could work at all**: `validation/comparison.py`, a new module that merges the three separate report.json files Features 44-46 write into one `data/validation/comparison_<run_id>/report.json`. Feature 55's build-plan text explicitly expects this consolidated file to already exist ("consuming data/validation/comparison_<run_id>/report.json (Feature 47)"), but nothing in the original Phase 9 delivery wrote it -- each experiment wrote its own separate report only. Not a redesign of Phase 9, just the missing merge step.
+- 3 new test files (`test_signal_plots.py`, `test_controller_dashboard.py`, `test_validation_report.py`), 12 tests total.
+
+### Decisions made
+
+- All visualization functions are strictly read-only: they take arrays/objects or file paths and never call `signal_processing/`, `ml/`, `controller/`, or `simulation/` functions themselves, per architecture.md -> Dashboard / Visualization's explicit constraint ("No visualization module may call controller/ or simulation/ functions that mutate state — display only").
+- `plot_controller_dashboard()` deliberately does not give `duty_cycle` its own panel -- per the Phase 9 finding that `duty_cycle` is currently always pinned to its configured minimum bound, a dedicated panel would just be a flat, uninformative line. Documented in the function's own docstring, not silently dropped.
+- Both `architecture.md`'s and `build-plan.md`'s references to a "Pages / Functional Views" section for Feature 54/55 don't correspond to an actual heading of that name anywhere in the docs (similar to the earlier "Success Criteria" mislabel from Phase 9) -- used the nearby "Full closed-loop data flow" diagram instead, which explicitly lists `visualization/controller_dashboard.py` as "read-only display of all of the above" and enumerates every stage's output, which is what the 3-panel design covers.
+
+### Verification
+
+- Full pytest suite: 275 passed, 8 skipped (same 8 pre-existing skips).
+- All four plotting functions were run against real artifacts, not just synthetic data in tests, and each output image was actually viewed to confirm correct rendering (not just "didn't raise an exception"):
+  - Feature 52: real `subj05/sess02` tremor session -- raw vs. filtered overlay and a PSD with a clean, correctly-shaded peak inside the tremor band.
+  - Feature 53: the same real session run through real inference -- 97/97 windows correctly detected as tremor, severity/confidence sustained near 1.0 throughout with a natural dip only at the very end of the recording.
+  - Feature 54: a real closed-loop run (`data/simulation/subj05_sess02_run/cycle_log.csv`) -- visually shows the exact convergence-toward-target trend already verified numerically in the Phase 8 session.
+  - Feature 55: a real merged comparison of the actual `no_mitigation`/`fixed_mitigation` (naive amplitude)/`adaptive_mitigation` reports from the Phase 9 session -- the bar chart visually reproduces the same adaptive-uses-less-exposure-for-comparable-suppression result already verified numerically in Feature 46's tests (110 vs. 160 exposure, 58% vs. 73.6% suppression).
+
+### Current state
+
+- Phase 10 (Features 52-55) is complete and verified against real data end to end.
+- `validation/comparison.py` is a genuinely new piece of the validation pipeline (not originally scoped in the Phase 9 session) -- worth knowing it exists as the bridge between Features 44-46's individual reports and Feature 55's comparison view.
+- The next implementation target is Phase 11, Feature 56: ESP32 resource profiling of the selected model.
+
+### Open questions
+
+- Everything under Open questions in the Phase 4/5/6/8/9 session updates above is still open.

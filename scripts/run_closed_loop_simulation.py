@@ -40,6 +40,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+import matplotlib
+matplotlib.use("Agg")  # non-interactive, file-only backend -- avoids requiring
+# a working Tcl/Tk installation (this script only ever saves figures to disk).
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
