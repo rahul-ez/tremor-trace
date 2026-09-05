@@ -7,9 +7,9 @@ Update this file after every completed feature.
 ## Current Status
 
 **Phase:** Phase 11 — ESP32 Real-Time Deployment
-**Last completed:** 55 Validation Report Visualization — Phase 10 complete
+**Last completed:** 55 Validation Report Visualization — Phase 10 complete. Additionally: Live Demo Dashboard (`scripts/run_live_demo.py`) built and smoke-tested.
 **Next:** 56 ESP32 Resource Profiling of Selected Model
-**Status:** Phase 10 complete (all 4 plots verified against real recorded/simulation data, not just synthetic; see memory.md -> Session Update - Features 52-55 Complete). Full suite: 275 passed, 8 skipped.
+**Status:** Phase 10 complete. Live real-time demo dashboard added as a demonstration-only script (outside the numbered build plan). Full suite: 275 passed, 8 skipped (unchanged — no production modules modified).
 
 ---
 
@@ -103,7 +103,17 @@ Update this file after every completed feature.
 
 ## Decisions Made During Build
 
-(None yet.)
+(None yet — decisions for the numbered build plan features will be recorded here as Phase 11 progresses.)
+
+**Live Demo Dashboard decisions (outside numbered build plan):**
+- Rendering: Plotly Dash chosen over matplotlib animation — browser-based, no GUI toolkit required, cleaner demo display.
+- Two update tiers: raw/filtered signal panels at 200 ms; analysis panels (PSD, ML, controller, suppression, before/after) at 800 ms.
+- Threading: reader (daemon) + processor (daemon) threads; Dash Flask server on main thread; SharedState under threading.Lock.
+- Calibration: 3-second stationary hold at startup; status banner shows countdown; active processing begins only after offsets are estimated.
+- Replay mode: ReplaySource streams pre-recorded CSV with time.sleep(1/rate_hz) pacing; banner clearly shows "REPLAY -- pre-recorded data" in amber vs "LIVE DATA" in green.
+- Suppression display: "Before" panel = real tremor signal from sensor; "After" panel = ODE-computed simulation.apply() output; both labelled explicitly; annotation reads "model-predicted reduction, not a physical measurement".
+- New dependency: dash (+ transitive plotly, flask) added to requirements.txt and library-docs.md; used in scripts/ only.
+
 
 ---
 

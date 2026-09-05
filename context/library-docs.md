@@ -771,3 +771,48 @@ The agent must prefer these established patterns over introducing alternative li
 - Do not introduce cloud services or external APIs unless explicitly required by the architecture (`architecture.md` states Database/Auth/Payments/Cloud Backend are all `None`).
 - Do not introduce a new ML framework (e.g., TensorFlow, PyTorch) when the existing Python/scikit-learn pipeline can perform the required operation — `architecture.md` explicitly favors lightweight classical ML over deep learning unless proven insufficient.
 - Do not replace an existing signal-processing implementation (e.g., swapping `scipy.signal.welch` for a different PSD method) without documenting the reason in this file and in `architecture.md` → Architecture Decisions.
+
+---
+
+## Dash
+
+**Role:** Demonstration-only live dashboard library. Used exclusively by `scripts/run_live_demo.py` to display the real-time tremor pipeline in a browser. Not a production pipeline dependency — no module in `signal_processing/`, `ml/`, `controller/`, `simulation/`, or `validation/` imports Dash.
+
+**Approved version:** `dash` (latest stable; brings `plotly` and `flask` as transitive dependencies).
+
+**Why added:** Provides a browser-based live dashboard with real-time updating panels via `dcc.Interval` polling. Selected over `matplotlib` animation because it does not require a GUI toolkit (Tcl/Tk, Qt) on the host machine, runs in any browser, and produces a visually cleaner demonstration display.
+
+**Integration point:** `scripts/run_live_demo.py` only. Imported at module level inside that script. No other script or module in the project imports Dash or Plotly.
+
+**Architecture boundary:** The Dash app is a read-only observer of pipeline state. No Dash callback invokes any controller, simulation, or adaptation function that mutates production state. All pipeline mutations happen in the background processor thread; callbacks only read from `SharedState` under a lock.
+
+**Threading model:** Dash runs Flask in the main thread via `app.run(debug=False, use_reloader=False)`. Pipeline threads (reader, processor) are daemon threads started before `app.run()`. Shared state is protected by `threading.Lock`; Dash callbacks acquire the lock only for the duration of a shallow copy of the fields they need.
+
+**Usage patterns approved for this project:**
+
+```python
+# Layout
+from dash import Dash, dcc, html, Input, Output
+import plotly.graph_objects as go
+
+app = Dash(__name__, title="Tremor Demo")
+app.layout = html.Div([
+    dcc.Interval(id="interval-fast", interval=200, n_intervals=0),
+    dcc.Graph(id="graph-raw"),
+])
+
+# Callback
+@app.callback(Output("graph-raw", "figure"), Input("interval-fast", "n_intervals"))
+def update(n: int) -> go.Figure:
+    ...
+
+# Launch — always use these exact flags to prevent double-process spawning
+app.run(debug=False, use_reloader=False, host="127.0.0.1", port=8050)
+```
+
+**Do not use:**
+- `app.run(debug=True)` — spawns a reloader subprocess that creates a second reader/processor thread.
+- `dash_bootstrap_components` or any other Dash extension — not approved; style with inline `style={}` dicts instead.
+- `dcc.Store` for shared state — use Python `threading.Lock` + a module-level `SharedState` instance (the standard single-worker-process pattern).
+- Plotly Express (`import plotly.express as px`) — use `plotly.graph_objects` directly for full control over trace styling.
+
